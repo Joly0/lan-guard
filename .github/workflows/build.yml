@@ -68,3 +68,24 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  # Keeps the Docker Hub page in sync with README.md. A separate job, so a
+  # token without the delete scope that this API needs fails here and not
+  # the image push.
+  dockerhub-description:
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - id: hub
+        run: echo "enabled=${{ secrets.DOCKERHUB_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+      - if: steps.hub.outputs.enabled == 'true'
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME || 'joly0' }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.DOCKERHUB_USERNAME || 'joly0' }}/lan-guard
+          short-description: "Sidecar that keeps containers off your LAN while the internet stays reachable. Fails closed."
+          readme-filepath: ./README.md
+          enable-url-completion: true
