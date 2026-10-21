@@ -1,0 +1,31 @@
+# Minimal example: every service that should stay off your LAN joins the
+# guard's network namespace and waits until the guard reports healthy.
+services:
+  lan-guard:
+    image: ghcr.io/joly0/lan-guard:1
+    container_name: lan-guard
+    # Only needed to set firewall rules inside the guard's own network
+    # namespace. It grants nothing on the host.
+    cap_add: [NET_ADMIN]
+    restart: unless-stopped
+    environment:
+      # Destinations that stay reachable even though they are private,
+      # e.g. a local DNS server. Comma or space separated. Empty by default.
+      ALLOW_SUBNETS: ""
+      # Uncomment to replace the default blocked ranges entirely.
+      # BLOCK_SUBNETS: "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 169.254.0.0/16 fc00::/7 fe80::/10"
+    # Ports of the services behind the guard are published here, on the guard.
+    # ports:
+    #   - "8080:8080"
+
+  app:
+    image: busybox:1.37
+    command: sleep infinity
+    network_mode: "service:lan-guard"
+    depends_on:
+      lan-guard:
+        condition: service_healthy
+        # Recreate the app when compose restarts the guard: a restarted guard
+        # has a new network namespace and the app would otherwise stay offline.
+        restart: true
+    restart: unless-stopped
